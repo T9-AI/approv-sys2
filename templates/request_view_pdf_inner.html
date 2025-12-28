@@ -1,0 +1,174 @@
+{# نفس request_view بس بدون أزرار وأكشنات #}
+<div class="paper">
+
+  <div class="row-between mb">
+    <div>
+      <div class="h2">Request #{{ req.id }}</div>
+      <div class="muted">
+        Status: <span class="badge">{{ req.status_text }}</span> ·
+        Created by: <b>{{ req.created_by_name }}</b>
+      </div>
+    </div>
+    <div class="muted small">Printed</div>
+  </div>
+
+  <div class="dr-header">
+    <div class="dr-logo">
+      <img class="logo" src="{{ url_for('static', filename='img/amwaj.png') }}" onerror="this.style.display='none'">
+      <div class="logo-fallback">AMWAJ<br><span>DEVELOPMENT</span></div>
+    </div>
+    <div class="dr-title"><div class="dr-title-main">Decision Request Form</div></div>
+    <div class="dr-logo right">
+      <img class="logo" src="{{ url_for('static', filename='img/accurex.png') }}" onerror="this.style.display='none'">
+      <div class="logo-fallback">ACCUREX<br><span>PROJECT MANAGEMENT</span></div>
+    </div>
+  </div>
+
+  <div class="dr-subline">
+    <div class="dr-subline-left">The Cube Quarter Residences | Decision Request</div>
+  </div>
+
+  <div class="dr-topgrid">
+    <div class="dr-top-left">
+      <table class="dr-fields">
+        <tr><td class="lbl">Decision Request No</td><td class="sep">:</td><td><div class="field ro">{{ data.get('decision_request_no','') }}</div></td></tr>
+        <tr><td class="lbl">Decision Request by</td><td class="sep">:</td><td><div class="field ro">{{ data.get('decision_request_by','') }}</div></td></tr>
+        <tr><td class="lbl">Subject</td><td class="sep">:</td><td><div class="field ro">{{ data.get('subject','') }}</div></td></tr>
+        <tr><td class="lbl">Reason for Decision</td><td class="sep">:</td><td><div class="field ro">{{ data.get('reason_for_decision','') }}</div></td></tr>
+      </table>
+    </div>
+
+    <div class="dr-top-right">
+      <table class="dr-to-cc">
+        <thead>
+          <tr><th style="width:60px">to</th><th style="width:60px">cc</th><th>Name</th></tr>
+        </thead>
+        <tbody>
+          {% for mm in mgr_modes %}
+          <tr>
+            <td class="center">{% if mm.mode=='signer' %}☑{% else %}☐{% endif %}</td>
+            <td class="center">{% if mm.mode=='viewer' %}☑{% else %}☐{% endif %}</td>
+            <td class="namecell">{{ mm.full_name }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <div class="dr-meta">
+        <div class="meta-row"><div class="meta-lbl">Date:</div><div class="meta-ro">{{ data.get('date','') }}</div></div>
+        <div class="meta-row"><div class="meta-lbl">Priority:</div><div class="meta-ro">{{ data.get('priority','') }}</div></div>
+        <div class="meta-row"><div class="meta-lbl">Decision due:</div><div class="meta-ro">{{ data.get('decision_due','') }}</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="dr-section-head">
+    <div class="col no">No.</div>
+    <div class="col item">Item</div>
+    <div class="col note">Note</div>
+  </div>
+
+  <div class="dr-section">
+    <div class="sec-no">1.</div>
+    <div class="sec-body">
+      <div class="sec-title">Short Description</div>
+      <div class="ro-block">{{ data.get('short_description','') }}</div>
+    </div>
+    <div class="sec-note"></div>
+  </div>
+
+  <div class="dr-section">
+    <div class="sec-no">2.</div>
+    <div class="sec-body">
+      <div class="sec-title row-between">
+        <span>Financial &amp; Cost Impact</span>
+        <span class="yesno ro"><span class="pill">{{ data.get('financial_impact','NO') }}</span></span>
+      </div>
+
+      <div class="fc-grid">
+        <div class="fc-left">
+          <div class="fc-row"><div class="fc-lbl">BOQ Cost for Sanitaryware is AED</div><div class="fc-cur">AED</div><div class="fc-ro">{{ data.get('boq_cost_aed','') }}</div></div>
+          <div class="fc-row"><div class="fc-lbl">Proposed Contactor Value</div><div class="fc-cur">AED</div><div class="fc-ro">{{ data.get('proposed_contractor_value_aed','') }}</div></div>
+          <div class="fc-row bold"><div class="fc-lbl">Variance</div><div class="fc-cur">AED</div><div class="fc-ro">{{ data.get('variance_aed','') }}</div></div>
+        </div>
+      </div>
+
+      <div class="ro-block">{{ data.get('financial_note','') }}</div>
+    </div>
+    <div class="sec-note"></div>
+  </div>
+
+  <div class="dr-section">
+    <div class="sec-no">3.</div>
+    <div class="sec-body">
+      <div class="sec-title row-between"><span>Program &amp; Impact on Completion Date</span><span class="yesno ro"><span class="pill">{{ data.get('program_impact','NO') }}</span></span></div>
+      <div class="ro-block">{{ data.get('program_note','') }}</div>
+    </div>
+    <div class="sec-note"></div>
+  </div>
+
+  <div class="dr-section">
+    <div class="sec-no">4.</div>
+    <div class="sec-body">
+      <div class="sec-title row-between"><span>Quality Impact</span><span class="yesno ro"><span class="pill">{{ data.get('quality_impact','NO') }}</span></span></div>
+      <div class="ro-block">{{ data.get('quality_note','') }}</div>
+    </div>
+    <div class="sec-note"></div>
+  </div>
+
+  <div class="dr-section last">
+    <div class="sec-no">5.</div>
+    <div class="sec-body">
+      <div class="sec-title">Approval Recommendation</div>
+      <div class="ro-block">{{ data.get('approval_recommendation','') }}</div>
+    </div>
+    <div class="sec-note"></div>
+  </div>
+
+  <div class="hr"></div>
+  <div class="h3">Approvals</div>
+
+  <div class="approvals">
+    {% for mm in mgr_modes %}
+      {% if mm.mode == 'signer' %}
+      <div class="approval-block">
+        <div class="approval-row">
+          <div class="decision-bar"><span class="muted small">Signer {{ mm.manager_order }}:</span> <b>{{ mm.full_name }}</b></div>
+          <div class="decision-boxes">
+            {% set last = None %}
+            {% for s in steps %}
+              {% if s.manager_order == mm.manager_order and s.actor_role == 'manager' %}
+                {% set last = s %}
+              {% endif %}
+            {% endfor %}
+            {% if last %}
+              <div class="chkbox {% if last.action=='approve' %}on{% endif %}">Approved</div>
+              <div class="chkbox {% if last.action=='approve' and (last.notes or '')|length>0 %}on{% endif %}">Approved as noted</div>
+              <div class="chkbox {% if last.action=='need_review' %}on{% endif %}">To be revised</div>
+              <div class="chkbox {% if last.action=='reject' %}on{% endif %}">Rejected</div>
+            {% else %}
+              <div class="chkbox">Approved</div>
+              <div class="chkbox">Approved as noted</div>
+              <div class="chkbox">To be revised</div>
+              <div class="chkbox">Rejected</div>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="approval-comments">
+          <div class="muted small"><b>{{ mm.full_name }} Comments:</b></div>
+          <div class="ro-block">{% if last %}{{ last.notes }}{% endif %}</div>
+
+          {% if last and last.signature_b64_snapshot %}
+            <div class="sig-preview">
+              <img class="sig-img" src="{{ last.signature_b64_snapshot }}">
+              <div class="muted small">Date: {{ last.created_at }}</div>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+
+</div>

@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="grid2 gap-xl">
+
+  <div class="card">
+    <div class="card-h">
+      <h2 class="h2">Admin Dashboard</h2>
+      <p class="muted">Create Users & Managers, reorder managers, monitor requests.</p>
+    </div>
+
+    <div class="hr"></div>
+
+    <h3 class="h3">Create User</h3>
+    <form class="form" method="post" action="{{ url_for('admin_create_user') }}">
+      <div class="grid2">
+        <div>
+          <label class="lbl">Username</label>
+          <input class="inp" name="username" required>
+        </div>
+        <div>
+          <label class="lbl">Password</label>
+          <input class="inp" name="password" required>
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div>
+          <label class="lbl">Full Name</label>
+          <input class="inp" name="full_name" required>
+        </div>
+        <div>
+          <label class="lbl">Email</label>
+          <input class="inp" name="email" type="email" placeholder="optional">
+        </div>
+      </div>
+
+      <div class="grid3">
+        <div>
+          <label class="lbl">Role</label>
+          <select class="inp" name="role" required>
+            <option value="user">user</option>
+            <option value="manager">manager</option>
+            <option value="admin">admin</option>
+          </select>
+        </div>
+        <div>
+          <label class="lbl">Manager Order (if manager)</label>
+          <input class="inp" name="order_index" type="number" min="1" placeholder="1,2,3..">
+        </div>
+        <div>
+          <label class="lbl">Manager Title (optional)</label>
+          <input class="inp" name="title" placeholder="Reviewed by / Decision by ...">
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn primary">Create</button>
+      </div>
+    </form>
+
+    <div class="hr"></div>
+
+    <h3 class="h3">All Users</h3>
+    <div class="table-wrap">
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Full Name</th>
+            <th>Username</th>
+            <th>Role</th>
+            <th>Email</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in users %}
+            <tr>
+              <td>{{ u.id }}</td>
+              <td>{{ u.full_name }}</td>
+              <td class="muted">{{ u.username }}</td>
+              <td><span class="badge">{{ u.role }}</span></td>
+              <td class="muted">{{ u.email }}</td>
+              <td>
+                {% if u.is_active %}
+                  <span class="badge">active</span>
+                {% else %}
+                  <span class="badge">disabled</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+          {% if users|length == 0 %}
+            <tr><td colspan="6" class="muted">No users.</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+
+<div class="hr"></div>
+
+    <h3 class="h3">Managers Order</h3>
+    <form class="form" method="post" action="{{ url_for('admin_reorder_managers') }}">
+      <div class="table-wrap">
+        <table class="tbl">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Manager</th>
+              <th>Email</th>
+              <th>Order</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for m in managers %}
+              <tr>
+                <td>{{ m.order_index }}</td>
+                <td>{{ m.full_name }}</td>
+                <td class="muted">{{ m.email }}</td>
+                <td style="width:120px">
+                  <input class="inp" style="width:100px" type="number" min="1" name="order_{{m.id}}" value="{{ m.order_index }}">
+                </td>
+              </tr>
+            {% endfor %}
+            {% if managers|length == 0 %}
+              <tr><td colspan="4" class="muted">No managers yet.</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+      <div class="actions">
+        <button class="btn">Update Order</button>
+      </div>
+    </form>
+
+    <div class="hr"></div>
+
+    <div class="muted small">
+      <div><b>Email:</b> {{ "READY" if email_enabled else "OFF" }}</div>
+      <div><b>PDF Engine:</b> {{ "READY" if weasyprint_ok else "NOT INSTALLED" }}</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-h">
+      <h2 class="h2">Recent Requests</h2>
+      <p class="muted">Last 50</p>
+    </div>
+
+    <div class="table-wrap">
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Created By</th>
+            <th>Status</th>
+            <th>Owner</th>
+            <th>Open</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in reqs %}
+          <tr>
+            <td>#{{ r.id }}</td>
+            <td>{{ r.created_by_name }}</td>
+            <td><span class="badge">{{ r.status_text }}</span></td>
+            <td class="muted">{{ r.current_owner_type }} {{ r.current_owner_id or "" }}</td>
+            <td><a class="link" href="{{ url_for('request_view', rid=r.id) }}">View</a></td>
+          </tr>
+          {% endfor %}
+          {% if reqs|length == 0 %}
+            <tr><td colspan="5" class="muted">No requests yet.</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

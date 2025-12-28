@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <div class="card-h">
+    <h2 class="h2">My Requests</h2>
+    <p class="muted">User: {{ user.full_name }}</p>
+  </div>
+
+  <div class="actions">
+    <a class="btn primary" href="{{ url_for('request_new') }}">+ New Request</a>
+  </div>
+
+  <div class="table-wrap">
+    <table class="tbl">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Status</th>
+          <th>Owner</th>
+          <th>Updated</th>
+          <th>Open</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td>#{{ r.id }}</td>
+          <td><span class="badge">{{ r.status_text }}</span></td>
+          <td class="muted">{{ r.current_owner_type }} {{ r.current_owner_id or "" }}</td>
+          <td class="muted small">{{ r.updated_at }}</td>
+          <td class="nowrap">
+            <a class="link" href="{{ url_for('request_view', rid=r.id) }}">View</a>
+            {% if r.current_owner_type == 'user' and r.current_owner_id == user.id %}
+              · <a class="link" href="{{ url_for('request_edit', rid=r.id) }}">Edit/Resubmit</a>
+            {% endif %}
+            · <a class="link" href="{{ url_for('report_view', rid=r.id) }}">Report</a>
+          </td>
+        </tr>
+        {% endfor %}
+        {% if rows|length == 0 %}
+          <tr><td colspan="5" class="muted">No requests yet.</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

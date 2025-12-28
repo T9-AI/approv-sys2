@@ -1,0 +1,564 @@
+{% extends "base.html" %}
+{% block content %}
+{% set req = req if req is defined else {} %}
+{% set projects = projects if projects is defined else [] %}
+{% set req_types = req_types if req_types is defined else [] %}
+{% set next_seq = next_seq if next_seq is defined else 1 %}
+
+<style>
+  /* ===== Exact PDF-like styling (matches your screenshot) ===== */
+  .pdfpage-wrap{ background:#fff; border:1px solid #cfcfcf; box-shadow:0 10px 30px rgba(0,0,0,.18); }
+  .pdfpage{
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 auto;
+    padding: 8mm 10mm 10mm;
+    background:#fff;
+    color:#000;
+    font-family: Calibri, Arial, sans-serif;
+    font-size: 11px;
+    line-height: 1.25;
+  }
+  @media (max-width: 1100px){ .pdfpage{ width:100%; } }
+
+  .hdr{ display:grid; grid-template-columns: 170px 1fr 170px; align-items:center; }
+  .hdr img{ height:34px; object-fit:contain; }
+  .hdr .title{ text-align:center; font-weight:700; }
+
+  .projline{
+    margin-top: 6px;
+    padding: 4px 0;
+    border-top: 1px solid #808080;
+    border-bottom: 1px solid #808080;
+    font-size: 11px;
+  }
+
+  .topgrid{ display:grid; grid-template-columns: 1.15fr .85fr; gap: 12px; margin-top: 6px; }
+  @media (max-width: 1100px){ .topgrid{ grid-template-columns:1fr; } }
+
+  table{ width:100%; border-collapse:collapse; }
+  .kv td{ padding: 1px 4px; vertical-align:middle; }
+  .kv td.k{ width: 160px; font-weight:600; }
+  .kv td.sep{ width: 10px; text-align:center; }
+  .uline{
+    display:inline-block;
+    min-width: 260px;
+    border-bottom: 1px solid #000;
+    padding: 0 4px 1px;
+  }
+  .uline.small{ min-width: 140px; }
+  .uline.wide{ min-width: 360px; }
+
+  .route td, .route th{ padding: 2px 4px; font-size: 10.5px; }
+  .route th{ font-weight:600; }
+  .route td{ border-bottom: 1px solid #cfcfcf; }
+  .route .c{ width: 22px; text-align:center; }
+
+  /* radio styled as square checkbox (so it looks exactly like PDF) */
+  .sq{
+    appearance:none;
+    -webkit-appearance:none;
+    width:11px; height:11px;
+    border:1px solid #000;
+    background:#fff;
+    vertical-align:middle;
+    display:inline-block;
+  }
+  .sq:checked{ background:#000; box-shadow: inset 0 0 0 2px #fff; }
+
+  .meta td{ padding: 1px 4px; }
+  .meta td.k{ width: 80px; font-weight:600; }
+  .meta td.sep{ width: 10px; text-align:center; }
+
+  /* Main sections */
+  .main th, .main td{ border: 1px solid #bdbdbd; padding: 3px 5px; vertical-align:top; }
+  .main thead th{
+    background: #1f5fae;
+    color:#fff;
+    font-weight:700;
+    text-align:left;
+  }
+  .main .no{ width: 36px; text-align:center; font-weight:700; }
+  .main .yn{ width: 55px; text-align:center; font-weight:700; }
+  .secbar td{
+    background: #cfe0f6;
+    font-weight:700;
+  }
+  .textblock{ padding: 4px 6px; white-space: pre-wrap; }
+  .ta{
+    width:100%;
+    border:none;
+    outline:none;
+    font-family: Calibri, Arial, sans-serif;
+    font-size: 11px;
+    resize: vertical;
+    min-height: 52px;
+  }
+  .ta.boxed{
+    border: 1px solid #000;
+    min-height: 46px;
+    padding: 4px 6px;
+    background:#fff;
+  }
+  .inline{
+    width:100%;
+    border:none;
+    outline:none;
+    font-family: Calibri, Arial, sans-serif;
+    font-size: 11px;
+    background:transparent;
+  }
+
+  .aed{ width: 55px; text-align:center; }
+  .amt{ width: 120px; text-align:right; }
+
+  /* Approval area */
+  .apbox{ border:1px solid #000; margin-top: 6px; }
+  .apbox .row1 td{ background:#cfe0f6; font-weight:700; padding: 3px 6px; }
+  .apbox .row2 td{ border-top:1px solid #000; padding: 3px 6px; }
+  .apbox .row3 td{ border-top:1px solid #000; padding: 3px 6px; }
+
+  .siggrid{ margin-top: 12px; display:grid; grid-template-columns: repeat(4, 1fr); gap: 8px; font-size:10px; }
+  @media (max-width: 1100px){ .siggrid{ grid-template-columns: 1fr 1fr; } }
+  .sigcol{ border-top: 1px solid #000; padding-top: 4px; }
+  .sigimg{ height: 40px; display:block; margin: 4px 0 2px; }
+  .sigdate{ display:inline-block; min-width: 80px; border-bottom: 1px solid #000; padding: 0 4px 1px; }
+
+  /* Setup modal overlay (only first time) */
+  .setupMask{
+    position: fixed; inset:0; background: rgba(0,0,0,.55);
+    display:flex; align-items:center; justify-content:center;
+    z-index: 9999;
+  }
+  .setupCard{
+    width: min(520px, 92vw);
+    background:#fff;
+    color:#111;
+    border-radius: 12px;
+    border: 1px solid #ddd;
+    box-shadow: 0 20px 60px rgba(0,0,0,.35);
+    padding: 16px 16px 12px;
+    font-family: var(--font);
+  }
+  .setupCard h3{ margin:0 0 10px; font-size:16px; }
+  .setupRow{ display:grid; gap:6px; margin-bottom: 10px; }
+  .setupRow label{ font-size: 12px; font-weight:700; }
+  .setupRow select,.setupRow input{
+    padding: 10px 10px; border-radius: 10px; border:1px solid #cfd6df; outline:none;
+  }
+  .setupBtn{
+    width:100%; padding: 10px 12px; border-radius: 10px;
+    border:1px solid #1f5fae; background:#1f5fae; color:#fff; font-weight:800;
+    cursor:pointer;
+  }
+</style>
+
+<form method="post" id="reqForm">
+  {% if csrf_token is defined %}
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  {% endif %}
+
+  <!-- hidden fields for auto header -->
+  <input type="hidden" name="project_code" id="project_code" value="{{ req.project_code or '' }}">
+  <input type="hidden" name="project_name" id="project_name" value="{{ req.project_name or '' }}">
+  <input type="hidden" name="unit_no" id="unit_no" value="{{ req.unit_no or '' }}">
+  <input type="hidden" name="request_type_code" id="request_type_code" value="{{ req.request_type_code or '' }}">
+  <input type="hidden" name="request_type_label" id="request_type_label" value="{{ req.request_type_label or '' }}">
+
+  <input type="hidden" name="decision_request_no" id="decision_request_no" value="{{ req.decision_request_no or '' }}">
+  <input type="hidden" name="decision_request_by" id="decision_request_by" value="{{ req.decision_request_by or (user.full_name if user else '') }}">
+
+  <div class="pdfpage-wrap">
+    <div class="pdfpage">
+
+      <div class="hdr">
+        <div><img src="{{ url_for('static', filename='img/amwaj.png') }}" alt="AMWAJ"></div>
+        <div class="title">Decision Request Form</div>
+        <div style="text-align:right"><img src="{{ url_for('static', filename='img/accurex.png') }}" alt="ACCUREX"></div>
+      </div>
+
+      <div class="projline" id="projLine">
+        {{ (req.project_name or "") }}{% if req.project_name %} | {% endif %}{{ (req.request_type_label or "") }}
+      </div>
+
+      <div class="topgrid">
+        <!-- Left KV -->
+        <div>
+          <table class="kv">
+            <tr>
+              <td class="k">Decision Request No</td><td class="sep">:</td>
+              <td><span class="uline wide" id="drNoTxt">{{ req.decision_request_no or "" }}</span></td>
+            </tr>
+            <tr>
+              <td class="k">Decision Request by</td><td class="sep">:</td>
+              <td><span class="uline wide" id="drByTxt">{{ req.decision_request_by or (user.full_name if user else "") }}</span></td>
+            </tr>
+            <tr>
+              <td class="k">Subject</td><td class="sep">:</td>
+              <td><input class="inline uline wide" name="subject" value="{{ req.subject or '' }}"></td>
+            </tr>
+            <tr>
+              <td class="k">Reason for Decision</td><td class="sep">:</td>
+              <td><input class="inline uline wide" name="reason_for_decision" value="{{ req.reason_for_decision or '' }}"></td>
+            </tr>
+          </table>
+        </div>
+
+        <!-- Right: route + meta -->
+        <div>
+          <table class="route">
+            <thead>
+              <tr>
+                <th class="c">to</th>
+                <th class="c">cc</th>
+                <th>Name</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for m in managers %}
+              <tr>
+                <td class="c">
+                  <input class="sq" type="radio" name="route_{{ m.id }}" value="to"
+                    {% if req.route_map is defined and req.route_map and req.route_map[m.id|string]=='to' %}checked{% endif %}>
+                </td>
+                <td class="c">
+                  <input class="sq" type="radio" name="route_{{ m.id }}" value="cc"
+                    {% if req.route_map is defined and req.route_map and req.route_map[m.id|string]=='cc' %}checked{% endif %}>
+                </td>
+                <td>{{ m.full_name }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+
+          <table class="meta" style="margin-top:6px;">
+            <tr>
+              <td class="k">Date</td><td class="sep">:</td>
+              <td><input class="inline uline small" name="req_date" value="{{ req.req_date or '' }}"></td>
+            </tr>
+            <tr>
+              <td class="k">Priority</td><td class="sep">:</td>
+              <td><input class="inline uline small" name="priority" value="{{ req.priority or '' }}"></td>
+            </tr>
+            <tr>
+              <td class="k">Decision due</td><td class="sep">:</td>
+              <td><input class="inline uline small" name="decision_due" value="{{ req.decision_due or '' }}"></td>
+            </tr>
+            <tr>
+              <td class="k">Note</td><td class="sep">:</td>
+              <td><input class="inline uline small" name="note" value="{{ req.note or '' }}"></td>
+            </tr>
+          </table>
+        </div>
+      </div>
+
+      <!-- Main table -->
+      <table class="main" style="margin-top:8px;">
+        <thead>
+          <tr>
+            <th class="no">No.</th>
+            <th>Item</th>
+            <th class="yn">YES</th>
+            <th class="yn">NO</th>
+          </tr>
+        </thead>
+
+        <!-- 1 -->
+        <tr class="secbar">
+          <td class="no">1.</td>
+          <td colspan="3">Short Description</td>
+        </tr>
+        <tr>
+          <td class="no"></td>
+          <td colspan="3">
+            <div class="textblock">
+              <textarea class="ta" name="sec1_short_desc">{{ req.sec1_short_desc or '' }}</textarea>
+              <div style="margin-top:3px;">Refer to the attached Comparison sheet for the details</div>
+            </div>
+          </td>
+        </tr>
+
+        <!-- 2 -->
+        <tr class="secbar">
+          <td class="no">2.</td>
+          <td>Financial &amp; Cost Impact</td>
+          <td class="yn"><input class="sq" type="checkbox" name="sec2_yes" {% if req.sec2_yes %}checked{% endif %}></td>
+          <td class="yn"><input class="sq" type="checkbox" name="sec2_no" {% if req.sec2_no %}checked{% endif %}></td>
+        </tr>
+        <tr>
+          <td class="no"></td>
+          <td colspan="3">
+            <table style="width:100%;">
+              <tr>
+                <td>BOQ Cost for Sanitaryware is</td>
+                <td class="aed">AED</td>
+                <td class="amt"><input class="inline uline small" name="sec2_boq" value="{{ req.sec2_boq or '' }}"></td>
+              </tr>
+              <tr>
+                <td>Proposed Cost for Sanitaryware (Lvl, M Kitchen &amp; Bath Gallery) is</td>
+                <td class="aed">AED</td>
+                <td class="amt"><input class="inline uline small" name="sec2_proposed" value="{{ req.sec2_proposed or '' }}"></td>
+              </tr>
+              <tr>
+                <td><b>Variation</b></td>
+                <td class="aed">AED</td>
+                <td class="amt"><input class="inline uline small" name="sec2_variation" value="{{ req.sec2_variation or '' }}"></td>
+              </tr>
+              <tr>
+                <td>The initial budget Amount was</td>
+                <td colspan="2">
+                  <textarea class="ta" name="sec2_notes" style="min-height:34px;">{{ req.sec2_notes or '' }}</textarea>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- 3 -->
+        <tr class="secbar">
+          <td class="no">3.</td>
+          <td>Program &amp; Impact on Completion Date</td>
+          <td class="yn"><input class="sq" type="checkbox" name="sec3_yes" {% if req.sec3_yes %}checked{% endif %}></td>
+          <td class="yn"><input class="sq" type="checkbox" name="sec3_no" {% if req.sec3_no %}checked{% endif %}></td>
+        </tr>
+        <tr>
+          <td class="no"></td>
+          <td colspan="3"><textarea class="ta" name="sec3_notes" style="min-height:28px;">{{ req.sec3_notes or '' }}</textarea></td>
+        </tr>
+
+        <!-- 4 -->
+        <tr class="secbar">
+          <td class="no">4.</td>
+          <td>Quality Impact</td>
+          <td class="yn"><input class="sq" type="checkbox" name="sec4_yes" {% if req.sec4_yes %}checked{% endif %}></td>
+          <td class="yn"><input class="sq" type="checkbox" name="sec4_no" {% if req.sec4_no %}checked{% endif %}></td>
+        </tr>
+        <tr>
+          <td class="no"></td>
+          <td colspan="3"><textarea class="ta" name="sec4_notes" style="min-height:28px;">{{ req.sec4_notes or '' }}</textarea></td>
+        </tr>
+
+        <!-- 5 -->
+        <tr class="secbar">
+          <td class="no">5.</td>
+          <td colspan="3">Approval Recommendation</td>
+        </tr>
+        <tr>
+          <td class="no"></td>
+          <td colspan="3">
+            <div class="textblock">
+              <!-- Optional general text (kept to match PDF layout) -->
+              <textarea class="ta" name="sec5_recommendation" style="min-height:42px;">{{ req.sec5_recommendation or '' }}</textarea>
+
+              {% if approval_slots is defined %}
+                {% for slot in approval_slots %}
+                  <div class="apbox">
+                    <table>
+                      <tr class="row1">
+                        <td>
+                          <label><input class="sq" type="radio" name="decision_{{ slot.manager_id }}" value="approved" {% if slot.decision=='approved' %}checked{% endif %}> Approved</label>
+                          &nbsp;&nbsp;
+                          <label><input class="sq" type="radio" name="decision_{{ slot.manager_id }}" value="approved_noted" {% if slot.decision=='approved_noted' %}checked{% endif %}> Approved as noted</label>
+                          &nbsp;&nbsp;
+                          <label><input class="sq" type="radio" name="decision_{{ slot.manager_id }}" value="need_review" {% if slot.decision=='need_review' %}checked{% endif %}> To be revised</label>
+                          &nbsp;&nbsp;
+                          <label><input class="sq" type="radio" name="decision_{{ slot.manager_id }}" value="rejected" {% if slot.decision=='rejected' %}checked{% endif %}> Rejected</label>
+                        </td>
+                      </tr>
+                      <tr class="row2">
+                        <td style="background:#cfe0f6; font-weight:700;">
+                          {{ slot.manager_name }} Comments:
+                        </td>
+                      </tr>
+                      <tr class="row3">
+                        <td>
+                          {% if slot.can_sign is defined and slot.can_sign %}
+                            <textarea class="ta boxed" name="comment_{{ slot.manager_id }}">{{ slot.comment or '' }}</textarea>
+
+                            <div style="margin-top:6px;">
+                              <div style="font-weight:700;margin-bottom:3px;">Signature</div>
+                              <canvas data-sig-canvas="1" class="sig-canvas" style="width:100%;height:110px;border:1px solid #000;background:#fff;"></canvas>
+                              <input type="hidden" data-sig-output="1" name="signature_data_{{ slot.manager_id }}">
+                              <button type="button" data-sig-clear="1" class="btn" style="margin-top:6px;">Clear</button>
+                            </div>
+                          {% else %}
+                            <div class="textblock" style="padding:0;">
+                              {{ slot.comment or "" }}
+                            </div>
+                          {% endif %}
+
+                          {% if slot.signature_url %}
+                            <img class="sigimg" src="{{ slot.signature_url }}" alt="Signature">
+                          {% endif %}
+                        </td>
+                      </tr>
+                    </table>
+                  </div>
+                {% endfor %}
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+      </table>
+
+      {# Signature footer (match PDF bottom) #}
+      {% set slots = approval_slots if approval_slots is defined else [] %}
+      {% set s1 = slots[0] if slots|length>0 else None %}
+      {% set s2 = slots[1] if slots|length>1 else None %}
+      {% set s3 = slots[2] if slots|length>2 else None %}
+
+      <div class="siggrid">
+        <div class="sigcol">
+          <div><b>Submitted by :</b></div>
+          <div>{{ user.full_name if user else "" }}</div>
+          <div><b>Signature</b></div>
+          {% if req.submitter_sig_url %}<img class="sigimg" src="{{ req.submitter_sig_url }}">{% endif %}
+          <div><b>Date</b> <span class="sigdate">{{ req.req_date or "" }}</span></div>
+        </div>
+
+        <div class="sigcol">
+          <div><b>Reviewed by :</b></div>
+          <div>{{ s1.manager_name if s1 else "" }}</div>
+          <div><b>Signature</b></div>
+          {% if s1 and s1.signature_url %}<img class="sigimg" src="{{ s1.signature_url }}">{% endif %}
+          <div><b>Date</b> <span class="sigdate">{{ s1.signed_at if s1 and s1.signed_at else "" }}</span></div>
+        </div>
+
+        <div class="sigcol">
+          <div><b>Recommendation by :</b></div>
+          <div>{{ s2.manager_name if s2 else "" }}</div>
+          <div><b>Signature</b></div>
+          {% if s2 and s2.signature_url %}<img class="sigimg" src="{{ s2.signature_url }}">{% endif %}
+          <div><b>Date</b> <span class="sigdate">{{ s2.signed_at if s2 and s2.signed_at else "" }}</span></div>
+        </div>
+
+        <div class="sigcol">
+          <div><b>Decision by :</b></div>
+          <div>{{ s3.manager_name if s3 else "" }}</div>
+          <div><b>Signature</b></div>
+          {% if s3 and s3.signature_url %}<img class="sigimg" src="{{ s3.signature_url }}">{% endif %}
+          <div><b>Date</b> <span class="sigdate">{{ s3.signed_at if s3 and s3.signed_at else "" }}</span></div>
+        </div>
+      </div>
+
+      <div style="margin-top:10px; display:flex; justify-content:flex-end;">
+        <button class="btn primary" type="submit">Submit</button>
+      </div>
+
+    </div>
+  </div>
+</form>
+
+{# ===== Setup Overlay (shows only when header not filled yet) ===== #}
+<div class="setupMask" id="setupMask" style="display:none;">
+  <div class="setupCard">
+    <h3>Start New Request</h3>
+
+    <div class="setupRow">
+      <label>Project</label>
+      <select id="selProject">
+        <option value="">Select project...</option>
+        {% for code,label in projects %}
+          <option value="{{ code }}" data-label="{{ label }}">{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="setupRow">
+      <label>Unit No</label>
+      <input id="inpUnit" placeholder="P1002">
+    </div>
+
+    <div class="setupRow">
+      <label>Request Type</label>
+      <select id="selType" name="request_type">
+        <option value="">Select type...</option>
+
+        {% set _req_types = req_types if req_types else [
+          ('DUMMY_1','Dummy Type 1'),
+          ('DUMMY_2','Dummy Type 2'),
+          ('DUMMY_3','Dummy Type 3')
+        ] %}
+
+        {% for code,label in _req_types %}
+          <option value="{{ code }}" data-label="{{ label }}">{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+
+    <button class="setupBtn" type="button" id="btnStart">Continue</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  const mask = document.getElementById("setupMask");
+  const project_code = document.getElementById("project_code");
+  const project_name = document.getElementById("project_name");
+  const unit_no = document.getElementById("unit_no");
+  const request_type_code = document.getElementById("request_type_code");
+  const request_type_label = document.getElementById("request_type_label");
+  const dr_no = document.getElementById("decision_request_no");
+  const dr_by = document.getElementById("decision_request_by");
+
+  const drNoTxt = document.getElementById("drNoTxt");
+  const drByTxt = document.getElementById("drByTxt");
+  const projLine = document.getElementById("projLine");
+
+  const selProject = document.getElementById("selProject");
+  const inpUnit = document.getElementById("inpUnit");
+  const selType = document.getElementById("selType");
+  const btnStart = document.getElementById("btnStart");
+
+  function showMaskIfNeeded(){
+    const has = (dr_no.value || "").trim();
+    if(!has){
+      mask.style.display = "flex";
+    }
+  }
+
+  function z3(n){
+    n = parseInt(n||0,10);
+    return String(n).padStart(3,"0");
+  }
+
+  btnStart.addEventListener("click", ()=>{
+    const pc = selProject.value.trim();
+    const pl = selProject.selectedOptions[0]?.dataset?.label || "";
+    const un = inpUnit.value.trim();
+    const tc = selType.value.trim();
+    const tl = selType.selectedOptions[0]?.dataset?.label || "";
+
+    if(!pc || !un || !tc){
+      alert("Select Project + Unit + Type");
+      return;
+    }
+
+    // fill hidden fields
+    project_code.value = pc;
+    project_name.value = pl;
+    unit_no.value = un;
+    request_type_code.value = tc;
+    request_type_label.value = tl;
+
+    // build DR number (UI). Server will generate final one on submit too.
+    const seq = z3({{ next_seq }});
+    const code = `${un}_${pc}_${tc}-${seq}`;
+
+    dr_no.value = code;
+    drNoTxt.textContent = code;
+
+    const by = dr_by.value || drByTxt.textContent || "";
+    drByTxt.textContent = by;
+
+    projLine.textContent = `${pl} | ${tl}`;
+
+    mask.style.display = "none";
+  });
+
+  showMaskIfNeeded();
+})();
+</script>
+
+{% endblock %}

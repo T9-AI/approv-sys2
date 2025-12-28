@@ -1,0 +1,157 @@
+{# نفس report.html لكن بدون base nav #}
+<div class="cert">
+
+  <section class="cert-page">
+    <div class="cert-hero">
+      <div class="cert-hero-inner">
+        <div class="cert-qr">
+          <div class="muted small center">Scan to verify</div>
+          <div class="qr-box">QR</div>
+        </div>
+        <div class="cert-title">Certificate of Fulfilment</div>
+        <div class="cert-meta">
+          <div class="meta-line">DATE ISSUED: <b>{{ req.updated_at }}</b></div>
+          <div class="meta-line">TRANSACTION PARTICIPANT SUMMARY</div>
+          <div class="meta-line">DOCUMENT ID: <b>{{ "DRS-" ~ req.id ~ "-" ~ req.revision }}</b></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="cert-block">
+      <div class="cert-h">General Overview</div>
+      <div class="muted">Basic information about the document.</div>
+      <table class="cert-tbl">
+        <tr><td>Document name</td><td>{{ data.get('decision_request_no','Request-' ~ req.id) }}.pdf</td></tr>
+        <tr><td>Status</td><td>{{ req.status_text }}</td></tr>
+        <tr><td>Timezone</td><td>UTC</td></tr>
+        <tr><td>Date created</td><td>{{ req.created_at }}</td></tr>
+        <tr><td>Page count</td><td>1</td></tr>
+        <tr><td>Format</td><td>PDF</td></tr>
+        <tr><td>Verify authenticity</td><td class="linkish">{{ request.url_root.rstrip('/') }}/report/{{ req.id }}</td></tr>
+      </table>
+    </div>
+
+    <div class="cert-footer">
+      <div>POWERED BY DRS</div>
+      <div>PAGE 1 / 4</div>
+    </div>
+  </section>
+
+  <div class="page-break"></div>
+
+  <section class="cert-page">
+    <div class="cert-block top">
+      <div class="cert-h">Transaction Details</div>
+      <div class="muted">An overview of the transaction that took place and its settings.</div>
+      <table class="cert-tbl">
+        <tr><td>Initiated by</td><td>{{ creator.full_name if creator else "" }} ({{ creator.email if creator else "" }})</td></tr>
+        <tr><td>Sent</td><td>{{ req.created_at }}</td></tr>
+        <tr><td>Executed</td><td>{{ req.updated_at }}</td></tr>
+        <tr><td>Signing method</td><td>Workflow Approval</td></tr>
+        <tr><td>Signature Providers</td><td>Internal (Canvas)</td></tr>
+        <tr><td>LTV enabled</td><td>No</td></tr>
+        <tr><td>Number of participants</td><td>{{ mgr_modes|length + 1 }}</td></tr>
+        <tr><td>Number of signatures</td><td>{{ (mgr_modes|selectattr('mode','equalto','signer')|list)|length }}</td></tr>
+        <tr><td>Signing order</td><td>Yes</td></tr>
+        <tr><td>Qualified Timestamp</td><td>No</td></tr>
+      </table>
+    </div>
+    <div class="cert-footer">
+      <div>POWERED BY DRS</div>
+      <div>PAGE 2 / 4</div>
+    </div>
+  </section>
+
+  <div class="page-break"></div>
+
+  <section class="cert-page">
+    <div class="cert-block top">
+      <div class="cert-h">Transaction Summary</div>
+      <div class="muted">An overview of all actions executed by each participant throughout the transaction.</div>
+
+      {% for mm in mgr_modes %}
+      <div class="participant">
+        <div class="participant-h">Participant: {{ mm.full_name }} ({{ mm.email }})</div>
+        <table class="participant-tbl">
+          <thead><tr><th>Event name</th><th>Timestamp &amp; Location</th><th>Signature details</th></tr></thead>
+          <tbody>
+            {% for s in steps %}
+              {% if s.actor_id == mm.manager_id %}
+              <tr>
+                <td>{{ "Document signed" if s.action in ['approve','reject','need_review'] else s.action }}</td>
+                <td>{{ s.created_at }}<br>{{ s.ip or "" }}<br>Server / UTC</td>
+                <td>{% if s.signature_b64_snapshot %}Trust: Internal{% else %}-{% endif %}</td>
+              </tr>
+              {% endif %}
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endfor %}
+
+      <div class="participant">
+        <div class="participant-h">Participant: {{ creator.full_name if creator else "" }} ({{ creator.email if creator else "" }})</div>
+        <table class="participant-tbl">
+          <thead><tr><th>Event name</th><th>Timestamp &amp; Location</th><th>Signature details</th></tr></thead>
+          <tbody>
+            {% for s in steps %}
+              {% if s.actor_role == 'user' %}
+              <tr>
+                <td>{{ "Request submitted" if s.action in ['submit','resubmit'] else s.action }}</td>
+                <td>{{ s.created_at }}<br>{{ s.ip or "" }}<br>Server / UTC</td>
+                <td>-</td>
+              </tr>
+              {% endif %}
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+    <div class="cert-footer">
+      <div>POWERED BY DRS</div>
+      <div>PAGE 3 / 4</div>
+    </div>
+  </section>
+
+  <div class="page-break"></div>
+
+  <section class="cert-page">
+    <div class="cert-block top">
+      <div class="cert-h">Detailed Audit Trail</div>
+      <div class="muted">A detailed event-by-event overview of the entire processing history of the document.</div>
+
+      <table class="audit-tbl">
+        <thead><tr><th style="width:20%">Event</th><th>Details</th><th style="width:20%">Timestamp server</th></tr></thead>
+        <tbody>
+          {% for s in steps|reverse %}
+          <tr>
+            <td>
+              {% if s.action in ['approve','reject','need_review'] %}Document signed
+              {% elif s.action in ['submit'] %}Document created
+              {% elif s.action in ['resubmit'] %}Document updated
+              {% else %}{{ s.action }}{% endif %}
+            </td>
+            <td>
+              {% if s.actor_name %}{{ s.actor_name }}{% endif %}
+              {% if s.status_label %} — {{ s.status_label }}{% endif %}
+              {% if s.notes %}<br>{{ s.notes }}{% endif %}
+              {% if s.ip %}<br>{{ s.ip }}{% endif %}
+            </td>
+            <td>{{ s.created_at }}</td>
+          </tr>
+          {% endfor %}
+          {% if steps|length == 0 %}
+            <tr><td colspan="3" class="muted">No events.</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+
+    </div>
+    <div class="cert-footer">
+      <div>POWERED BY DRS</div>
+      <div>PAGE 4 / 4</div>
+    </div>
+  </section>
+
+</div>

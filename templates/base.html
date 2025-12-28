@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{{ title or "Decision Request System" }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  <script defer src="{{ url_for('static', filename='signature.js') }}"></script>
+</head>
+<body class="app-body">
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="brand-title">Decision Request System</div>
+        <div class="brand-sub">Amwaj Development</div>
+      </div>
+
+      <nav class="nav">
+        {% if user %}
+          {% if user.role == 'admin' %}
+            <a class="nav-link" href="{{ url_for('admin_dashboard') }}">Admin</a>
+            <a class="nav-link" href="{{ url_for('admin_logs') }}">Logs</a>
+          {% elif user.role == 'manager' %}
+            <a class="nav-link" href="{{ url_for('manager_inbox') }}">Inbox</a>
+          {% elif user.role == 'user' %}
+            <a class="nav-link" href="{{ url_for('user_requests') }}">My Requests</a>
+            <a class="nav-link" href="{{ url_for('request_new') }}">New Request</a>
+          {% endif %}
+          <a class="nav-link danger" href="{{ url_for('logout') }}">Logout</a>
+        {% else %}
+          <a class="nav-link" href="{{ url_for('login') }}">Login</a>
+        {% endif %}
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash-wrap">
+          {% for cat,msg in messages %}
+            <div class="flash {{cat}}">{{ msg }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <div>Powered by DR System</div>
+      <div class="muted">Server time: {{ (req.updated_at if req is defined else "") }}</div>
+    </div>
+  </footer>
+</body>
+</html>

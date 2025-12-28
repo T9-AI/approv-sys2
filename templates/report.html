@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="pdfx-wrap">
+  <div class="pdfx-report">
+
+    <!-- PAGE 1 / COVER -->
+    <div class="page pb">
+      <div class="cover-top">
+        <div class="waves"></div>
+
+        <div class="qr">
+          <div style="margin-bottom:6px;">Scan to verify</div>
+          {% if report.qr_data_uri %}
+            <img src="{{ report.qr_data_uri }}" alt="QR">
+          {% else %}
+            <div style="width:28mm;height:28mm;border:2px dashed #cbd5e1;border-radius:6px;display:flex;align-items:center;justify-content:center;background:#fff;">QR</div>
+          {% endif %}
+        </div>
+
+        <div class="cover-title">Certificate of Fulfillment</div>
+
+        <div class="cover-meta">
+          <div class="line">DATE ISSUED : {{ report.date_issued }}</div>
+          <div class="line">TRANSACTION PARTICIPANT SUMMARY</div>
+          <div class="line">DOCUMENT ID : {{ report.document_id }}</div>
+        </div>
+      </div>
+
+      <div class="h1">General Overview</div>
+      <div class="sub">Basic information about the document.</div>
+
+      <table>
+        <tr><td class="k">Document name</td><td class="v">{{ report.document_name }}</td></tr>
+        <tr><td class="k">Status</td><td class="v">{{ report.status }}</td></tr>
+        <tr><td class="k">Timezone</td><td class="v">{{ report.timezone }}</td></tr>
+        <tr><td class="k">Date created</td><td class="v">{{ report.date_created }}</td></tr>
+        <tr><td class="k">Page count</td><td class="v">{{ report.page_count }}</td></tr>
+        <tr><td class="k">File size</td><td class="v">{{ report.file_size }}</td></tr>
+        <tr><td class="k">Format</td><td class="v">{{ report.format }}</td></tr>
+        <tr>
+          <td class="k">Verify authenticity</td>
+          <td class="v">
+            {% if report.verify_url %}
+              <span style="color:#2b2b84;font-weight:700;">{{ report.verify_url }}</span>
+            {% else %}
+              -
+            {% endif %}
+          </td>
+        </tr>
+      </table>
+
+      <div class="footer">
+        <div>POWERED BY CIRCULARO</div>
+        <div>PAGE 1 / 4</div>
+      </div>
+    </div>
+
+    <!-- PAGE 2 -->
+    <div class="page pb">
+      <div class="h1">Transaction Details</div>
+      <div class="sub">An overview of the transaction that took place and its settings.</div>
+
+      <table>
+        <tr><td class="k">Initiated by</td><td class="v">{{ report.initiated_by }}</td></tr>
+        <tr><td class="k">Sent</td><td class="v">{{ report.sent_at }}</td></tr>
+        <tr><td class="k">Executed</td><td class="v">{{ report.executed_at }}</td></tr>
+        <tr><td class="k">Signing method</td><td class="v">{{ report.signing_method }}</td></tr>
+        <tr><td class="k">Signature Providers</td><td class="v">{{ report.signature_provider }}</td></tr>
+        <tr><td class="k">LTV enabled</td><td class="v">{{ report.ltv_enabled }}</td></tr>
+        <tr><td class="k">Number of participants</td><td class="v">{{ report.num_participants }}</td></tr>
+        <tr><td class="k">Number of signatures</td><td class="v">{{ report.num_signatures }}</td></tr>
+        <tr><td class="k">Number of initials</td><td class="v">{{ report.num_initials }}</td></tr>
+        <tr><td class="k">Number of stamps</td><td class="v">{{ report.num_stamps }}</td></tr>
+        <tr><td class="k">Signing order</td><td class="v">{{ report.signing_order }}</td></tr>
+        <tr><td class="k">Signed checksum</td><td class="v">{{ report.signed_checksum }}</td></tr>
+        <tr><td class="k">Qualified Timestamp</td><td class="v">{{ report.qualified_timestamp }}</td></tr>
+      </table>
+
+      <div class="footer">
+        <div>POWERED BY CIRCULARO</div>
+        <div>PAGE 2 / 4</div>
+      </div>
+    </div>
+
+    <!-- PAGE 3 -->
+    <div class="page pb">
+      <div class="h1">Transaction Summary</div>
+      <div class="sub">An overview of all actions executed by each participant throughout the transaction.</div>
+
+      {% for p in participants %}
+        <div class="pillbar">Participant: {{ p.name }} {% if p.email %}({{ p.email }}){% endif %}</div>
+        <div class="block">
+          <table>
+            <thead>
+              <tr>
+                <th style="text-align:left;">Event name</th>
+                <th style="text-align:left;">Timestamp &amp; Location</th>
+                <th style="text-align:left;">Signature details</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for e in p.events %}
+              <tr>
+                <td>{{ e.name }}</td>
+                <td>{{ e.time }}<br><span class="muted">{{ e.location }}</span></td>
+                <td>{{ e.signature_details }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endfor %}
+
+      <div class="footer">
+        <div>POWERED BY CIRCULARO</div>
+        <div>PAGE 3 / 4</div>
+      </div>
+    </div>
+
+    <!-- PAGE 4 -->
+    <div class="page">
+      <div class="h1">Detailed Audit Trail</div>
+      <div class="sub">A detailed event-by-event overview of the entire processing history of the document.</div>
+
+      <div class="pillbar"> </div>
+      <div class="block">
+        <table>
+          <thead>
+            <tr>
+              <th style="text-align:left;">Event</th>
+              <th style="text-align:left;">Details</th>
+              <th style="text-align:left;">Timestamp server</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for a in audit_rows %}
+            <tr>
+              <td>{{ a.event }}</td>
+              <td>{{ a.details }}</td>
+              <td>{{ a.timestamp }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="footer">
+        <div>POWERED BY CIRCULARO</div>
+        <div>PAGE 4 / 4</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+{% endblock %}

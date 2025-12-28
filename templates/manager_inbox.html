@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <div class="card-h">
+    <h2 class="h2">Manager Inbox</h2>
+    <p class="muted">{{ user.full_name }}</p>
+  </div>
+
+  <div class="table-wrap">
+    <table class="tbl">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Created By</th>
+          <th>Status</th>
+          <th>Updated</th>
+          <th>Open</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td>#{{ r.id }}</td>
+          <td>{{ r.created_by_name }}</td>
+          <td><span class="badge">{{ r.status_text }}</span></td>
+          <td class="muted small">{{ r.updated_at }}</td>
+          <td><a class="link" href="{{ url_for('request_view', rid=r.id) }}">Open</a></td>
+        </tr>
+        {% endfor %}
+        {% if rows|length == 0 %}
+          <tr><td colspan="5" class="muted">No assigned requests.</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="pdfx-wrap">
+  <div class="pdfx-a4 pdfx-form">
+
+    <div class="hdr">
+      <div><img class="logo" src="{{ url_for('static', filename='img/amwaj.png') }}" alt="AMWAJ"></div>
+      <div class="title">Decision Request Form</div>
+      <div style="text-align:right"><img class="logo" src="{{ url_for('static', filename='img/accurex.png') }}" alt="ACCUREX"></div>
+    </div>
+
+    <div class="subline">
+      {{ req.project_name }} | Decision Request
+    </div>
+
+    <div class="topgrid">
+      <div>
+        <table class="kv">
+          <tr><td class="k">Decision Request No</td><td class="sep">:</td><td class="v">{{ req.decision_request_no }}</td></tr>
+          <tr><td class="k">Decision Request by</td><td class="sep">:</td><td class="v">{{ req.decision_request_by }}</td></tr>
+          <tr><td class="k">Subject</td><td class="sep">:</td><td class="v">{{ req.subject }}</td></tr>
+          <tr><td class="k">Reason for Decision</td><td class="sep">:</td><td class="v">{{ req.reason_for_decision }}</td></tr>
+        </table>
+      </div>
+
+      <div>
+        <div class="route">
+          <table>
+            <thead><tr><th class="small">to</th><th class="small">cc</th><th>Name</th></tr></thead>
+            <tbody>
+              {% for m in managers %}
+              {% set r = (req.route_map[m.id|string] if req.route_map else '') %}
+              <tr>
+                <td class="small">{% if r == 'to' %}☑{% else %}☐{% endif %}</td>
+                <td class="small">{% if r == 'cc' %}☑{% else %}☐{% endif %}</td>
+                <td class="name">{{ m.full_name }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="meta">
+          <div class="row"><div class="lbl">Date</div><div class="val">{{ req.req_date }}</div></div>
+          <div class="row"><div class="lbl">Priority</div><div class="val">{{ req.priority }}</div></div>
+          <div class="row"><div class="lbl">Step</div><div class="val">{{ req.step }}</div></div>
+          <div class="row"><div class="lbl">Note</div><div class="val">{{ req.note }}</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sec-head"><div>No.</div><div>Item</div><div style="text-align:center;">YES</div><div style="text-align:center;">NO</div></div>
+
+    <div class="sec">
+      <div class="no">1.</div>
+      <div class="body">
+        <div style="font-weight:700;margin-bottom:6px;">Short Description</div>
+        <div class="box">{{ req.sec1_short_desc }}</div>
+      </div>
+      <div class="yn"></div><div class="yn"></div>
+    </div>
+
+    <div class="sec">
+      <div class="no">2.</div>
+      <div class="body">
+        <div style="font-weight:700;margin-bottom:6px;">Financial Cost Impact</div>
+
+        <div class="fin-grid">
+          <div class="fin-row"><div>BOQ Cost for Sanitaryware is</div><div class="cur">AED</div><div class="box">{{ req.sec2_boq }}</div></div>
+          <div class="fin-row"><div>Proposed Cost for Sanitaryware (Lvl, M Kitchen &amp; Bath Gallery ) is</div><div class="cur">AED</div><div class="box">{{ req.sec2_proposed }}</div></div>
+          <div class="fin-row"><div>Variation</div><div class="cur">AED</div><div class="box">{{ req.sec2_variation }}</div></div>
+          <div class="fin-row"><div style="font-weight:700;">The total budget amount was</div><div class="cur">AED</div><div class="box">{{ req.sec2_total }}</div></div>
+        </div>
+
+        <div style="margin-top:6px;"><div class="box">{{ req.sec2_notes }}</div></div>
+      </div>
+      <div class="yn">{% if req.sec2_yes %}☑{% else %}☐{% endif %}</div>
+      <div class="yn">{% if req.sec2_no %}☑{% else %}☐{% endif %}</div>
+    </div>
+
+    <div class="sec">
+      <div class="no">3.</div>
+      <div class="body">
+        <div style="font-weight:700;margin-bottom:6px;">Program &amp; Impact on Completion Date</div>
+        <div class="box">{{ req.sec3_notes }}</div>
+      </div>
+      <div class="yn">{% if req.sec3_yes %}☑{% else %}☐{% endif %}</div>
+      <div class="yn">{% if req.sec3_no %}☑{% else %}☐{% endif %}</div>
+    </div>
+
+    <div class="sec">
+      <div class="no">4.</div>
+      <div class="body">
+        <div style="font-weight:700;margin-bottom:6px;">Quality Impact</div>
+        <div class="box">{{ req.sec4_notes }}</div>
+      </div>
+      <div class="yn">{% if req.sec4_yes %}☑{% else %}☐{% endif %}</div>
+      <div class="yn">{% if req.sec4_no %}☑{% else %}☐{% endif %}</div>
+    </div>
+
+    <div class="sec">
+      <div class="no">5.</div>
+      <div class="body" style="grid-column: span 3;">
+        <div style="font-weight:700;margin-bottom:6px;">Approval Recommendation</div>
+
+        <div class="approvals">
+          {% for slot in approval_slots %}
+            <div class="ap-row">
+              <div class="ap-name">{{ slot.manager_name }}</div>
+
+              <div class="ap-choices">
+                <div class="choice">{% if slot.decision=='approved' %}☑{% else %}☐{% endif %}&nbsp; Approved</div>
+                <div class="choice">{% if slot.decision=='approved_noted' %}☑{% else %}☐{% endif %}&nbsp; Approved as noted</div>
+                <div class="choice">{% if slot.decision=='need_review' %}☑{% else %}☐{% endif %}&nbsp; To be revised</div>
+                <div class="choice">{% if slot.decision=='rejected' %}☑{% else %}☐{% endif %}&nbsp; Rejected</div>
+              </div>
+
+              <div class="ap-notes">
+                <div style="font-weight:700;font-size:10.5px;margin-bottom:3px;">{{ slot.manager_name }} Comments:</div>
+                <div class="box" style="min-height:46px;">{{ slot.comment }}</div>
+              </div>
+
+              {% if slot.signature_url %}
+                <img class="sigimg" src="{{ slot.signature_url }}" alt="Signature">
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <div class="card-h">
+    <h2 class="h2">Audit Logs</h2>
+    <p class="muted">Last 300 events</p>
+  </div>
+
+  <div class="table-wrap">
+    <table class="tbl">
+      <thead>
+        <tr>
+          <th>TS</th>
+          <th>Actor</th>
+          <th>Action</th>
+          <th>Request</th>
+          <th>IP</th>
+          <th>Details</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td class="small">{{ r.ts }}</td>
+          <td>{{ r.actor_username or "-" }}</td>
+          <td><span class="badge">{{ r.action }}</span></td>
+          <td>
+            {% if r.request_id %}
+              <a class="link" href="{{ url_for('request_view', rid=r.request_id) }}">#{{ r.request_id }}</a>
+            {% else %}-{% endif %}
+          </td>
+          <td class="muted small">{{ r.ip }}</td>
+          <td class="muted small" style="max-width:420px; white-space:pre-wrap">{{ r.details_json }}</td>
+        </tr>
+        {% endfor %}
+        {% if rows|length == 0 %}
+          <tr><td colspan="6" class="muted">No logs.</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
