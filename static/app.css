@@ -169,6 +169,10 @@ img{ max-width:100%; }
   color: #e5e7eb;
   outline:none;
 }
+.locked{
+  background: rgba(148,163,184,.35) !important;
+  color: #0f172a !important;
+}
 .inp:focus, .ta:focus{
   border-color: rgba(37,99,235,.55);
   box-shadow: 0 0 0 3px rgba(37,99,235,.20);
@@ -193,10 +197,11 @@ img{ max-width:100%; }
 }
 .btn:hover{ background: rgba(255,255,255,.10); }
 .btn.primary{
-  background: rgba(37,99,235,.18);
-  border-color: rgba(37,99,235,.35);
+  background: linear-gradient(90deg, #1d4ed8, #2563eb);
+  border-color: rgba(37,99,235,.55);
+  color: #f8fafc;
 }
-.btn.primary:hover{ background: rgba(37,99,235,.26); }
+.btn.primary:hover{ background: linear-gradient(90deg, #1e40af, #1d4ed8); }
 .btn.danger{
   background: rgba(239,68,68,.14);
   border-color: rgba(239,68,68,.30);

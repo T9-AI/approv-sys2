@@ -22,7 +22,7 @@
   @media (max-width: 1100px){ .pdfpage{ width:100%; } }
 
   .hdr{ display:grid; grid-template-columns: 170px 1fr 170px; align-items:center; }
-  .hdr img{ height:34px; object-fit:contain; }
+  .hdr img{ height:44px; object-fit:contain; }
   .hdr .title{ text-align:center; font-weight:700; }
 
   .projline{
@@ -43,11 +43,18 @@
   .uline{
     display:inline-block;
     min-width: 260px;
-    border-bottom: 1px solid #000;
-    padding: 0 4px 1px;
+    border-bottom: 1.5px solid #000;
+    padding: 2px 6px 1px;
   }
   .uline.small{ min-width: 140px; }
   .uline.wide{ min-width: 360px; }
+  input.inline.uline, select.inline.uline{
+    border:none;
+    outline:none;
+    background: transparent;
+    width:100%;
+    font-size:11px;
+  }
 
   .route td, .route th{ padding: 2px 4px; font-size: 10.5px; }
   .route th{ font-weight:600; }
@@ -121,6 +128,7 @@
   .siggrid{ margin-top: 12px; display:grid; grid-template-columns: repeat(4, 1fr); gap: 8px; font-size:10px; }
   @media (max-width: 1100px){ .siggrid{ grid-template-columns: 1fr 1fr; } }
   .sigcol{ border-top: 1px solid #000; padding-top: 4px; }
+  .status-badge{ display:inline-block; padding:4px 10px; border-radius:10px; background:#1f5fae; color:#fff; font-weight:700; font-size:11px; }
   .sigimg{ height: 40px; display:block; margin: 4px 0 2px; }
   .sigdate{ display:inline-block; min-width: 80px; border-bottom: 1px solid #000; padding: 0 4px 1px; }
 
@@ -177,6 +185,10 @@
         <div style="text-align:right"><img src="{{ url_for('static', filename='img/accurex.png') }}" alt="ACCUREX"></div>
       </div>
 
+      <div style="text-align:right; margin-top:4px;">
+        <span class="status-badge">{{ req.status_text or req.status_label or req.status or 'Draft' }}</span>
+      </div>
+
       <div class="projline" id="projLine">
         {{ (req.project_name or "") }}{% if req.project_name %} | {% endif %}{{ (req.request_type_label or "") }}
       </div>
@@ -216,14 +228,20 @@
             </thead>
             <tbody>
               {% for m in managers %}
-              <tr>
+              <tr data-manager-route="{{ m.id }}">
                 <td class="c">
-                  <input class="sq" type="radio" name="route_{{ m.id }}" value="to"
-                    {% if req.route_map is defined and req.route_map and req.route_map[m.id|string]=='to' %}checked{% endif %}>
+                  <label style="display:flex;align-items:center;gap:6px;justify-content:center;">
+                    <input class="sq" type="radio" name="route_{{ m.id }}" value="to"
+                      {% if req.route_map is defined and req.route_map and req.route_map[m.id|string]=='to' %}checked{% endif %}>
+                    <span style="font-size:10px;">YES</span>
+                  </label>
                 </td>
                 <td class="c">
-                  <input class="sq" type="radio" name="route_{{ m.id }}" value="cc"
-                    {% if req.route_map is defined and req.route_map and req.route_map[m.id|string]=='cc' %}checked{% endif %}>
+                  <label style="display:flex;align-items:center;gap:6px;justify-content:center;">
+                    <input class="sq" type="radio" name="route_{{ m.id }}" value="cc"
+                      {% if req.route_map is defined and req.route_map and req.route_map[m.id|string]=='cc' %}checked{% endif %}>
+                    <span style="font-size:10px;">NO</span>
+                  </label>
                 </td>
                 <td>{{ m.full_name }}</td>
               </tr>
@@ -234,15 +252,23 @@
           <table class="meta" style="margin-top:6px;">
             <tr>
               <td class="k">Date</td><td class="sep">:</td>
-              <td><input class="inline uline small" name="req_date" value="{{ req.req_date or '' }}"></td>
+              <td><input class="inline uline small js-date" type="date" name="req_date" value="{{ req.req_date or '' }}"></td>
             </tr>
             <tr>
               <td class="k">Priority</td><td class="sep">:</td>
-              <td><input class="inline uline small" name="priority" value="{{ req.priority or '' }}"></td>
+              {% set _pri = req.priority or req.meta.priority or '' %}
+              <td>
+                <select class="inline uline small" name="priority">
+                  <option value="">Select</option>
+                  <option value="High" {% if _pri=='High' %}selected{% endif %}>High</option>
+                  <option value="Medium" {% if _pri=='Medium' %}selected{% endif %}>Medium</option>
+                  <option value="Low" {% if _pri=='Low' %}selected{% endif %}>Low</option>
+                </select>
+              </td>
             </tr>
             <tr>
               <td class="k">Decision due</td><td class="sep">:</td>
-              <td><input class="inline uline small" name="decision_due" value="{{ req.decision_due or '' }}"></td>
+              <td><input class="inline uline small js-date" type="date" name="decision_due" value="{{ req.decision_due or '' }}"></td>
             </tr>
             <tr>
               <td class="k">Note</td><td class="sep">:</td>
@@ -282,8 +308,8 @@
         <tr class="secbar">
           <td class="no">2.</td>
           <td>Financial &amp; Cost Impact</td>
-          <td class="yn"><input class="sq" type="checkbox" name="sec2_yes" {% if req.sec2_yes %}checked{% endif %}></td>
-          <td class="yn"><input class="sq" type="checkbox" name="sec2_no" {% if req.sec2_no %}checked{% endif %}></td>
+          <td class="yn"><label style="display:flex;align-items:center;gap:6px;justify-content:center;"><input class="sq" type="checkbox" name="sec2_yes" {% if req.sec2_yes %}checked{% endif %}> YES</label></td>
+          <td class="yn"><label style="display:flex;align-items:center;gap:6px;justify-content:center;"><input class="sq" type="checkbox" name="sec2_no" {% if req.sec2_no %}checked{% endif %}> NO</label></td>
         </tr>
         <tr>
           <td class="no"></td>
@@ -318,8 +344,8 @@
         <tr class="secbar">
           <td class="no">3.</td>
           <td>Program &amp; Impact on Completion Date</td>
-          <td class="yn"><input class="sq" type="checkbox" name="sec3_yes" {% if req.sec3_yes %}checked{% endif %}></td>
-          <td class="yn"><input class="sq" type="checkbox" name="sec3_no" {% if req.sec3_no %}checked{% endif %}></td>
+          <td class="yn"><label style="display:flex;align-items:center;gap:6px;justify-content:center;"><input class="sq" type="checkbox" name="sec3_yes" {% if req.sec3_yes %}checked{% endif %}> YES</label></td>
+          <td class="yn"><label style="display:flex;align-items:center;gap:6px;justify-content:center;"><input class="sq" type="checkbox" name="sec3_no" {% if req.sec3_no %}checked{% endif %}> NO</label></td>
         </tr>
         <tr>
           <td class="no"></td>
@@ -330,8 +356,8 @@
         <tr class="secbar">
           <td class="no">4.</td>
           <td>Quality Impact</td>
-          <td class="yn"><input class="sq" type="checkbox" name="sec4_yes" {% if req.sec4_yes %}checked{% endif %}></td>
-          <td class="yn"><input class="sq" type="checkbox" name="sec4_no" {% if req.sec4_no %}checked{% endif %}></td>
+          <td class="yn"><label style="display:flex;align-items:center;gap:6px;justify-content:center;"><input class="sq" type="checkbox" name="sec4_yes" {% if req.sec4_yes %}checked{% endif %}> YES</label></td>
+          <td class="yn"><label style="display:flex;align-items:center;gap:6px;justify-content:center;"><input class="sq" type="checkbox" name="sec4_no" {% if req.sec4_no %}checked{% endif %}> NO</label></td>
         </tr>
         <tr>
           <td class="no"></td>

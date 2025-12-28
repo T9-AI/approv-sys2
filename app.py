@@ -274,6 +274,59 @@ def merge_setup_into_session(new_setup: Dict[str, str]) -> Dict[str, str]:
     return merged
 
 
+def build_status_text(req_row: sqlite3.Row | Dict[str, Any]) -> str:
+    try:
+        status = req_row["status"]
+        current_step = int(req_row.get("current_step_order") if isinstance(req_row, dict) else req_row["current_step_order"])
+        last_dec = (req_row.get("last_decision") if isinstance(req_row, dict) else req_row["last_decision"]) or ""
+        last_step = int(
+            req_row.get("last_decision_step") if isinstance(req_row, dict) else req_row["last_decision_step"] or 0
+        )
+        return_reason = (req_row.get("return_reason") if isinstance(req_row, dict) else req_row["return_reason"]) or ""
+        return_from_step = int(
+            req_row.get("return_from_step") if isinstance(req_row, dict) else req_row["return_from_step"] or 0
+        )
+        cycle_no = int(req_row.get("cycle_no") if isinstance(req_row, dict) else req_row["cycle_no"] or 1)
+        steps = get_request_steps(int(req_row.get("id") if isinstance(req_row, dict) else req_row["id"]), cycle_no)
+    except Exception:
+        return ""
+
+    def title(dec: str) -> str:
+        if dec == DECISION_APPROVED:
+            return "Approved"
+        if dec == DECISION_REJECTED:
+            return "Rejected"
+        if dec == DECISION_NEED_REVIEW:
+            return "Need Review"
+        return "Pending"
+
+    def manager_name(step: int) -> str:
+        for s in steps:
+            if int(s["step_order"]) == int(step):
+                return s.get("manager_name") or ""
+        return ""
+
+    if status == REQ_APPROVED:
+        return "Completed"
+    if status == REQ_DRAFT:
+        return "Draft"
+    if status == REQ_IN_REVIEW:
+        lbl = f"Pending {current_step if current_step else 1}"
+        nm = manager_name(current_step)
+        return f"{lbl} - {nm}" if nm else lbl
+    if status == REQ_RETURNED:
+        step = return_from_step or last_step or 1
+        rr = return_reason or last_dec or DECISION_NEED_REVIEW
+        lbl = f"{title(rr)} {step}"
+        nm = manager_name(step)
+        return f"{lbl} - {nm}" if nm else lbl
+    if last_dec:
+        lbl = f"{title(last_dec)} {last_step or current_step or 1}"
+        nm = manager_name(last_step)
+        return f"{lbl} - {nm}" if nm else lbl
+    return status
+
+
 def build_req_obj(req_row: Any, include_steps: bool = True) -> Dict[str, Any]:
     """
     Build a template-friendly request object:
@@ -304,13 +357,21 @@ def build_req_obj(req_row: Any, include_steps: bool = True) -> Dict[str, Any]:
 
     # Labels
     try:
-        base["status_label"] = compute_status_label(req_row if isinstance(req_row, sqlite3.Row) else db_query_one("SELECT * FROM requests WHERE id=?", (int(base.get("id", 0)),)))
+        base["status_label"] = compute_status_label(
+            req_row if isinstance(req_row, sqlite3.Row) else db_query_one("SELECT * FROM requests WHERE id=?", (int(base.get("id", 0)),))
+        )
     except Exception:
         base["status_label"] = base.get("status", "")
     try:
-        base["last_decision_label"] = compute_last_decision_label(req_row if isinstance(req_row, sqlite3.Row) else db_query_one("SELECT * FROM requests WHERE id=?", (int(base.get("id", 0)),)))
+        base["last_decision_label"] = compute_last_decision_label(
+            req_row if isinstance(req_row, sqlite3.Row) else db_query_one("SELECT * FROM requests WHERE id=?", (int(base.get("id", 0)),))
+        )
     except Exception:
         base["last_decision_label"] = ""
+    try:
+        base["status_text"] = build_status_text(req_row)
+    except Exception:
+        base["status_text"] = base.get("status_label") or base.get("status", "")
 
     # Flatten keys (do not overwrite existing columns)
     for src in (header, mid, meta):
@@ -991,7 +1052,8 @@ def get_workflow_template_steps() -> List[sqlite3.Row]:
 
 def instantiate_request_steps(request_id: int,
                               cycle_no: int,
-                              workflow_overrides: List[Dict[str, Any]] | None = None) -> List[Dict[str, Any]]:
+                              workflow_overrides: List[Dict[str, Any]] | None = None,
+                              selected_manager_ids: Optional[List[int]] = None) -> List[Dict[str, Any]]:
     """
     Create request_steps rows from template.
     workflow_overrides example:
@@ -1000,14 +1062,18 @@ def instantiate_request_steps(request_id: int,
       override by step_order if provided else by manager_id, else default.
     """
     template = get_workflow_template_steps()
+    selected_set = {int(x) for x in selected_manager_ids} if selected_manager_ids else set()
     overrides = workflow_overrides or []
     by_step = {int(x.get("step_order")): x for x in overrides if x.get("step_order")}
     by_mgr = {int(x.get("manager_id")): x for x in overrides if x.get("manager_id")}
 
     created = []
     for t in template:
-        step_order = int(t["step_order"])
         manager_id = int(t["manager_id"])
+        if selected_set and manager_id not in selected_set:
+            continue
+
+        step_order = len(created) + 1
         action_type = t["action_type"]
 
         if step_order in by_step and by_step[step_order].get("action_type") in ("viewer", "signer"):
@@ -1138,6 +1204,36 @@ def require_signature_for_step(req_row: sqlite3.Row, step_order: int) -> bool:
     if not rs:
         return False
     return rs["action_type"] == "signer"
+
+
+def get_active_managers_for_routing() -> List[Dict[str, Any]]:
+    rows = db_query_all(
+        """SELECT u.*, COALESCE(mp.title,'') as title, COALESCE(w.step_order,0) as workflow_step_order,
+                  COALESCE(w.action_type,'signer') as workflow_action_type
+           FROM users u
+           LEFT JOIN manager_profiles mp ON mp.manager_id = u.id
+           LEFT JOIN workflow_template_steps w ON w.manager_id = u.id AND w.is_active=1
+           WHERE u.role=? AND u.is_active=1
+           ORDER BY CASE WHEN w.step_order IS NULL THEN 9999 ELSE w.step_order END ASC, u.full_name ASC""",
+        (ROLE_MANAGER,),
+    )
+    return [dict(r) for r in rows]
+
+
+def parse_route_selection(form: Dict[str, Any], managers: List[Dict[str, Any]]) -> Tuple[Dict[str, str], List[int], List[int]]:
+    route_map: Dict[str, str] = {}
+    to_ids: List[int] = []
+    cc_ids: List[int] = []
+    manager_ids = [int(m.get("id")) for m in managers]
+    for mid in manager_ids:
+        v = (form.get(f"route_{mid}") or "").strip().lower()
+        if v in ("to", "cc"):
+            route_map[str(mid)] = v
+            if v == "to":
+                to_ids.append(mid)
+            elif v == "cc":
+                cc_ids.append(mid)
+    return route_map, to_ids, cc_ids
 
 
 def route_on_decision(req_row: sqlite3.Row, decision: str) -> Tuple[int, str]:
@@ -1385,6 +1481,7 @@ def request_new():
     ready = bool(project_value and unit_no and req_type)
 
     template_steps = get_workflow_template_steps()
+    managers = get_active_managers_for_routing()
 
     # Preview next request number / seq for UI (not reserved until save)
     request_no_preview = ""
@@ -1455,6 +1552,7 @@ def request_new():
                 req=req_obj,
                 request_obj=req_obj,
                 template_steps=template_steps,
+                managers=managers,
                 projects=DEFAULT_PROJECT_CHOICES,
                 request_type_choices=DEFAULT_REQUEST_TYPE_CHOICES,
                 next_request_no=request_no_preview,
@@ -1491,6 +1589,7 @@ def request_new():
         req=req_obj,
         request_obj=req_obj,
         template_steps=template_steps,
+        managers=managers,
         projects=DEFAULT_PROJECT_CHOICES,
         request_type_choices=DEFAULT_REQUEST_TYPE_CHOICES,
         next_request_no=request_no_preview,
@@ -1569,6 +1668,18 @@ def request_create():
     meta_json = safe_json_loads(request.form.get("meta_json"), {})
     if not isinstance(meta_json, dict):
         meta_json = {}
+
+    managers = get_active_managers_for_routing()
+    route_map, to_ids, cc_ids = parse_route_selection(request.form, managers)
+    if not to_ids:
+        flash("Select at least one TO manager.")
+        return redirect(url_for("request_edit", request_id=request_id))
+
+    managers = get_active_managers_for_routing()
+    route_map, to_ids, cc_ids = parse_route_selection(request.form, managers)
+    if not to_ids:
+        flash("Select at least one TO manager.")
+        return redirect(url_for("request_new", stage="form"))
 
     workflow_overrides = safe_json_loads(request.form.get("workflow_overrides_json"), [])
     if not isinstance(workflow_overrides, list):
@@ -1661,6 +1772,10 @@ def request_create():
     header_json.setdefault("decision_request_by", g.current_user.full_name)
     header_json.setdefault("requested_by", g.current_user.full_name)
     header_json.setdefault("requester_email", getattr(g.current_user, "email", "") or "")
+    req_date = (request.form.get("req_date") or "").strip()
+    if req_date:
+        header_json["date"] = req_date
+        header_json["req_date"] = req_date
     header_json.setdefault("date", today_iso())
     header_json.setdefault("request_type", req_type)
 
@@ -1678,6 +1793,10 @@ def request_create():
         meta_json.setdefault("project", project_value)
     if unit_no:
         meta_json.setdefault("unit_no", unit_no)
+
+    if isinstance(mid_json, dict):
+        mid_json["route_map"] = route_map
+    meta_json["route_map"] = route_map
 
     # Optional: build workflow overrides from form fields if JSON not provided
     if not workflow_overrides:
@@ -1702,6 +1821,12 @@ def request_create():
                     pass
         if tmp:
             workflow_overrides = tmp
+    if route_map:
+        workflow_overrides = (
+            [{"manager_id": mid, "action_type": "signer"} for mid in to_ids]
+            + [{"manager_id": mid, "action_type": "viewer"} for mid in cc_ids]
+        )
+    meta_json["workflow_overrides"] = workflow_overrides
     request_id = db_exec(
         """INSERT INTO requests(request_no,request_type,created_by_user_id,status,cycle_no,current_step_order,
                                 header_json,mid_json,meta_json,attachments_json,created_at,updated_at)
@@ -1721,7 +1846,7 @@ def request_create():
     )
 
     # create steps for cycle 1
-    created_steps = instantiate_request_steps(request_id, 1, workflow_overrides)
+    created_steps = instantiate_request_steps(request_id, 1, workflow_overrides, selected_manager_ids=to_ids)
 
     audit(
         "request.created",
@@ -1793,6 +1918,7 @@ def request_detail(request_id: int):
         projects=DEFAULT_PROJECT_CHOICES,
         request_type_choices=DEFAULT_REQUEST_TYPE_CHOICES,
         template_steps=get_workflow_template_steps(),
+        managers=get_active_managers_for_routing(),
     )
 
 
@@ -1825,6 +1951,7 @@ def request_edit(request_id: int):
             projects=DEFAULT_PROJECT_CHOICES,
             request_type_choices=DEFAULT_REQUEST_TYPE_CHOICES,
             template_steps=get_workflow_template_steps(),
+            managers=get_active_managers_for_routing(),
         )
 
     # POST -> update draft
@@ -1928,6 +2055,10 @@ def request_edit(request_id: int):
     header_json.setdefault("decision_request_by", g.current_user.full_name)
     header_json.setdefault("requested_by", g.current_user.full_name)
     header_json.setdefault("requester_email", getattr(g.current_user, "email", "") or "")
+    req_date = (request.form.get("req_date") or "").strip()
+    if req_date:
+        header_json["date"] = req_date
+        header_json["req_date"] = req_date
     header_json.setdefault("date", header_json.get("date") or today_iso())
 
     # Update meta for lists/search
@@ -1944,6 +2075,16 @@ def request_edit(request_id: int):
         meta_json["project"] = project_value
     if unit_no:
         meta_json["unit_no"] = unit_no
+
+    if isinstance(mid_json, dict):
+        mid_json["route_map"] = route_map
+    meta_json["route_map"] = route_map
+
+    workflow_overrides = (
+        [{"manager_id": mid, "action_type": "signer"} for mid in to_ids]
+        + [{"manager_id": mid, "action_type": "viewer"} for mid in cc_ids]
+    )
+    meta_json["workflow_overrides"] = workflow_overrides
 
     # Attachments: keep existing + append new
     attachments = safe_json_loads(req_row["attachments_json"], []) or []
@@ -1978,6 +2119,9 @@ def request_edit(request_id: int):
         ),
     )
 
+    db_exec("DELETE FROM request_steps WHERE request_id=? AND cycle_no=?", (request_id, int(req_row["cycle_no"])))
+    instantiate_request_steps(request_id, int(req_row["cycle_no"]), workflow_overrides, selected_manager_ids=to_ids)
+
     audit("request.edited", {"request_no": request_no, "request_type": req_type}, request_id=request_id, cycle_no=int(req_row["cycle_no"]), step_order=int(req_row["current_step_order"]))
 
     flash("Draft updated.")
@@ -2004,13 +2148,14 @@ def request_submit(request_id: int):
         # increment cycle, create new steps from template (use same overrides from meta if present)
         meta = safe_json_loads(req_row["meta_json"], {})
         workflow_overrides = meta.get("workflow_overrides") or []
+        selected_signers = [int(x.get("manager_id")) for x in workflow_overrides if x.get("action_type") == "signer" and x.get("manager_id")]
         db_exec(
             "UPDATE requests SET cycle_no=?, return_reason='', return_from_step=0 WHERE id=?",
             (cycle_no, request_id),
         )
 
         # instantiate new cycle steps
-        instantiate_request_steps(request_id, cycle_no, workflow_overrides)
+        instantiate_request_steps(request_id, cycle_no, workflow_overrides, selected_manager_ids=selected_signers)
         audit("request.cycle.increment", {"new_cycle": cycle_no}, request_id=request_id, cycle_no=cycle_no)
 
     # Start review at step 1
