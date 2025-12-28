@@ -29,11 +29,11 @@
           <td class="muted">{{ r.current_owner_type }} {{ r.current_owner_id or "" }}</td>
           <td class="muted small">{{ r.updated_at }}</td>
           <td class="nowrap">
-            <a class="link" href="{{ url_for('request_view', rid=r.id) }}">View</a>
+            <a class="link" href="{{ url_for('request_detail', request_id=r.id) }}">View</a>
             {% if r.current_owner_type == 'user' and r.current_owner_id == user.id %}
-              · <a class="link" href="{{ url_for('request_edit', rid=r.id) }}">Edit/Resubmit</a>
+              · <a class="link" href="{{ url_for('request_edit', request_id=r.id) }}">Edit/Resubmit</a>
             {% endif %}
-            · <a class="link" href="{{ url_for('report_view', rid=r.id) }}">Report</a>
+            · <a class="link" href="{{ url_for('report_view', request_id=r.id) }}">Report</a>
           </td>
         </tr>
         {% endfor %}

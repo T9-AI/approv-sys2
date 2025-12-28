@@ -14,6 +14,10 @@
       {{ req.project_name }} | Decision Request
     </div>
 
+    <div style="text-align:right; margin:4px 0 8px;">
+      <span class="badge">{{ req.status_text or req.status_label or req.status }}</span>
+    </div>
+
     <div class="topgrid">
       <div>
         <table class="kv">

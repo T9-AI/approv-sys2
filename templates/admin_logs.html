@@ -26,7 +26,7 @@
           <td><span class="badge">{{ r.action }}</span></td>
           <td>
             {% if r.request_id %}
-              <a class="link" href="{{ url_for('request_view', rid=r.request_id) }}">#{{ r.request_id }}</a>
+              <a class="link" href="{{ url_for('request_detail', request_id=r.request_id) }}">#{{ r.request_id }}</a>
             {% else %}-{% endif %}
           </td>
           <td class="muted small">{{ r.ip }}</td>
