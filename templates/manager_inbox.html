@@ -24,7 +24,7 @@
           <td>{{ r.created_by_name }}</td>
           <td><span class="badge">{{ r.status_text }}</span></td>
           <td class="muted small">{{ r.updated_at }}</td>
-          <td><a class="link" href="{{ url_for('request_view', rid=r.id) }}">Open</a></td>
+          <td><a class="link" href="{{ url_for('request_detail', request_id=r.id) }}">Open</a></td>
         </tr>
         {% endfor %}
         {% if rows|length == 0 %}

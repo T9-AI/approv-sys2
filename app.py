@@ -66,19 +66,13 @@ APP_NAME = "Decision Request System"
 
 BASE_DIR = Path(__file__).resolve().parent
 # Database path:
-# - If APP_DB_PATH env var is set, use it.
-# - Otherwise, auto-detect an existing *.db file in BASE_DIR to avoid accidental "new empty DB" issues
-#   when the filename changes between versions.
+# - If APP_DB_PATH env var is set, use it (must still point to app.db unless overridden intentionally).
+# - Otherwise, always use app.db in the repo root to avoid accidental creation of a secondary DB.
 _env_db = (os.getenv("APP_DB_PATH") or "").strip()
 if _env_db:
     DB_PATH = Path(_env_db)
 else:
-    # Prefer the largest DB file (usually the one with real data).
-    candidates = sorted(BASE_DIR.glob("*.db"), key=lambda p: p.stat().st_size if p.exists() else 0, reverse=True)
-    if candidates:
-        DB_PATH = candidates[0]
-    else:
-        DB_PATH = BASE_DIR / "app.db"
+    DB_PATH = BASE_DIR / "app.db"
 UPLOAD_DIR = Path(os.getenv("APP_UPLOAD_DIR", str(BASE_DIR / "uploads")))
 ASSETS_DIR = Path(os.getenv("APP_ASSETS_DIR", str(BASE_DIR / "assets")))
 
@@ -2309,6 +2303,8 @@ def admin_dashboard():
     # Workflow JSON + Users + Recent requests + Audit log
     audits = db_query_all("SELECT * FROM audit_log ORDER BY id DESC LIMIT 100")
 
+    weasyprint_ok = False
+
     template = get_workflow_template_steps()
     workflow_json = []
     for t in template:
@@ -2354,6 +2350,7 @@ def admin_dashboard():
         requests=reqs,
         reqs=reqs,
         email_enabled=bool(SMTP_HOST and SMTP_USER),
+        weasyprint_ok=weasyprint_ok,
         db_path=str(DB_PATH),
     )
 
@@ -2362,6 +2359,40 @@ def admin_dashboard():
 @role_required(ROLE_ADMIN)
 def admin_dashboard_alias():
     return admin_dashboard()
+
+
+@app.get("/admin/logs")
+@role_required(ROLE_ADMIN)
+def admin_logs():
+    rows = db_query_all(
+        """SELECT al.*, u.username AS actor_username
+           FROM audit_log al
+           LEFT JOIN users u ON u.id = al.actor_id
+           ORDER BY al.id DESC
+           LIMIT 300"""
+    )
+
+    data = []
+    for r in rows:
+        details_obj = safe_json_loads(r["details"], {})
+        data.append(
+            {
+                "ts": r["created_at"],
+                "actor_username": r["actor_username"] or r["actor_name"] or "",
+                "action": r["action"],
+                "request_id": r["request_id"],
+                "ip": r["ip"],
+                "details_json": json_dumps(details_obj),
+            }
+        )
+
+    return render_template(
+        "admin_logs.html",
+        current_user=g.current_user,
+        user=g.current_user,
+        rows=data,
+        req={},
+    )
 
 
 @app.post("/admin/users/create")
@@ -2376,6 +2407,16 @@ def admin_create_user():
     full_name = (request.form.get("full_name") or "").strip()
     email = (request.form.get("email") or "").strip()
     role = (request.form.get("role") or "").strip().lower()
+    title = (request.form.get("title") or "").strip()
+    order_index_raw = (request.form.get("order_index") or "").strip()
+    order_index = None
+    if order_index_raw:
+        try:
+            order_index = int(order_index_raw)
+            if order_index <= 0:
+                order_index = None
+        except Exception:
+            order_index = None
 
     # Basic validation
     if role not in (ROLE_ADMIN, ROLE_MANAGER, ROLE_USER):
@@ -2410,10 +2451,35 @@ def admin_create_user():
             # create/ensure profile
             db_exec(
                 "INSERT OR IGNORE INTO manager_profiles(manager_id,title,created_at,updated_at) VALUES(?,?,?,?)",
-                (int(new_id), "", ts, ts),
+                (int(new_id), title, ts, ts),
+            )
+            db_exec(
+                "UPDATE manager_profiles SET title=?, updated_at=? WHERE manager_id=?",
+                (title, ts, int(new_id)),
             )
 
-        audit("admin_create_user", request_id=None, details={"user_id": int(new_id), "username": username, "role": role})
+            # auto-append to workflow template so managers are visible in dashboard ordering
+            max_row = db_query_one(
+                "SELECT MAX(step_order) AS max_order FROM workflow_template_steps WHERE is_active=1",
+            )
+            next_order = int(max_row["max_order"] or 0) + 1
+            step_order = order_index or next_order
+            db_exec(
+                "INSERT INTO workflow_template_steps(step_order,manager_id,action_type,is_active,created_at) VALUES(?,?,?,1,?)",
+                (step_order, int(new_id), "signer", ts),
+            )
+
+        audit(
+            "admin_create_user",
+            request_id=None,
+            details={
+                "user_id": int(new_id),
+                "username": username,
+                "role": role,
+                "order_index": order_index,
+                "title": title,
+            },
+        )
 
         flash(f"Created {role}: {full_name} ({username})", "success")
         return redirect(url_for("admin_dashboard"))
